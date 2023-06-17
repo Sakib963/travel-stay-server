@@ -181,8 +181,27 @@ async function run() {
 
     // Top Cities
     app.get("/top-cities", async (req, res) => {
-      const result = await topCitiesCollection.find().toArray();
-      res.send(result);
+      const result = await roomsCollection
+        .aggregate([
+          {
+            $group: {
+              _id: "$city",
+              numberOfHotels: { $sum: 1 },
+              totalHotelsAvailable: {
+                $sum: { $cond: [{ $eq: ["$status", "approved"] }, 1, 0] },
+              },
+            },
+          },
+          {
+            $sort: { numberOfHotels: -1 },
+          },
+          {
+            $limit: 3,
+          },
+        ])
+        .toArray();
+
+      res.json(result);
     });
 
     // Create A Room
@@ -253,31 +272,34 @@ async function run() {
     });
 
     // Update Room Data
-    app.patch('/room/:id', verifyJWT, verifyOwner, async(req, res) => {
-        const id = req.params.id;
-        const filter = {_id: new ObjectId(id)};
-        const updatedRoomData = req.body;
-        
-        const updateDoc = {
-            $set :{
-                ...updatedRoomData
-            }
-        }
-        const options = {upsert: true}
+    app.patch("/room/:id", verifyJWT, verifyOwner, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedRoomData = req.body;
 
-        const result = await roomsCollection.updateOne(filter, updateDoc, options);
-        res.send(result);
-    })
+      const updateDoc = {
+        $set: {
+          ...updatedRoomData,
+        },
+      };
+      const options = { upsert: true };
+
+      const result = await roomsCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+      res.send(result);
+    });
 
     // Delete Single Room Data
-    app.delete('/room/:id', verifyJWT, verifyOwner, async(req, res) => {
-        const id = req.params.id;
-        const filter = {_id: new ObjectId(id)};
+    app.delete("/room/:id", verifyJWT, verifyOwner, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
 
-        const result = await roomsCollection.deleteOne(filter);
-        res.send(result);
-    })
-
+      const result = await roomsCollection.deleteOne(filter);
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
