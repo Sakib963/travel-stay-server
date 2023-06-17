@@ -54,6 +54,10 @@ async function run() {
 
     const usersCollection = client.db("travelStayDB").collection("users");
     const ownersCollection = client.db("travelStayDB").collection("owners");
+    const topCitiesCollection = client
+      .db("travelStayDB")
+      .collection("topCities");
+    const roomsCollection = client.db("travelStayDB").collection("rooms");
 
     // Verify Admin MiddleWare
     const verifyAdmin = async (req, res, next) => {
@@ -160,6 +164,63 @@ async function run() {
       const insertResult = await ownersCollection.insertOne(owner);
       const result = await usersCollection.updateOne(query, updateDoc, options);
       res.send(result);
+    });
+
+    // Top Cities
+    app.get("/top-cities", async (req, res) => {
+      const result = await topCitiesCollection.find().toArray();
+      res.send(result);
+    });
+
+    // Create A Room
+    app.post("/create-room", async (req, res) => {
+      const roomData = req.body;
+      const result = await roomsCollection.insertOne(roomData);
+      res.send(result);
+    });
+
+    // Get All Rooms
+    app.get("/all-rooms", verifyJWT, verifyAdmin, async (req, res) => {
+      const result = await roomsCollection.find().toArray();
+      res.send(result);
+    });
+
+    // Handle Approve or Deny Rooms
+    app.patch("/all-rooms/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const update = req.query.status;
+
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+
+      if (update === "approved") {
+        const updateDoc = {
+          $set: {
+            status: "approved",
+          },
+        };
+
+        const updateResult = await roomsCollection.updateOne(
+          filter,
+          updateDoc,
+          options
+        );
+        res.send(updateResult);
+      }
+
+      if (update === "denied") {
+        const updateDoc = {
+          $set: {
+            status: "denied",
+          },
+        };
+        const updateResult = await roomsCollection.updateOne(
+          filter,
+          updateDoc,
+          options
+        );
+        res.send(updateResult);
+      }
     });
 
     // Send a ping to confirm a successful connection
