@@ -58,6 +58,7 @@ async function run() {
       .db("travelStayDB")
       .collection("topCities");
     const roomsCollection = client.db("travelStayDB").collection("rooms");
+    const reservedCollection = client.db("travelStayDB").collection("reserved");
 
     // Verify Admin MiddleWare
     const verifyAdmin = async (req, res, next) => {
@@ -298,6 +299,33 @@ async function run() {
       const filter = { _id: new ObjectId(id) };
 
       const result = await roomsCollection.deleteOne(filter);
+      res.send(result);
+    });
+
+    // Get Featured Hotels
+    app.get("/featured-hotels", async (req, res) => {
+      const result = await roomsCollection
+        .find({ status: "approved" })
+        .sort({ totalNumberOfGuest: -1 })
+        .limit(6)
+        .toArray();
+
+      res.json(result);
+    });
+
+    // Search
+    app.get("/search", verifyJWT, async (req, res) => {
+      const city = req.query.city;
+      const results = await roomsCollection
+        .find({ city: { $regex: new RegExp(`^${city}$`, "i") } })
+        .toArray();
+      res.json(results);
+    });
+
+    // Reserve
+    app.post("/reserve", verifyJWT, async (req, res) => {
+      const reservedData = req.body;
+      const result = await reservedCollection.insertOne(reservedData);
       res.send(result);
     });
 
