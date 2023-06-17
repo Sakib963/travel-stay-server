@@ -53,6 +53,7 @@ async function run() {
     await client.connect();
 
     const usersCollection = client.db("travelStayDB").collection("users");
+    const ownersCollection = client.db("travelStayDB").collection("owners");
 
     // Verify Admin MiddleWare
     const verifyAdmin = async (req, res, next) => {
@@ -121,6 +122,43 @@ async function run() {
       const query = { email: email };
       const user = await usersCollection.findOne(query);
       const result = { owner: user?.role === "owner" };
+      res.send(result);
+    });
+
+    // Make Admin
+    app.patch("/users/admin/:id", async (req, res) => {
+      const query = { _id: new ObjectId(req.params.id) };
+      const findResult = await usersCollection.findOne(query);
+      const ownersResult = await ownersCollection.deleteOne({
+        email: findResult.email,
+      });
+
+      const options = { upsert: true };
+
+      const updateDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+
+      const result = await usersCollection.updateOne(query, updateDoc, options);
+      res.send(result);
+    });
+
+    // Make Owner
+    app.patch("/users/owner/:id", async (req, res) => {
+      const query = { _id: new ObjectId(req.params.id) };
+      const owner = req.body;
+      console.log(owner);
+      const options = { upsert: true };
+
+      const updateDoc = {
+        $set: {
+          role: "owner",
+        },
+      };
+      const insertResult = await ownersCollection.insertOne(owner);
+      const result = await usersCollection.updateOne(query, updateDoc, options);
       res.send(result);
     });
 
