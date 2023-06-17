@@ -16,7 +16,7 @@ const verifyJWT = (req, res, next) => {
   if (!authorization) {
     return res
       .status(401)
-      .send({ error: true, message: "unauthorized access" });
+      .send({ error: true, message: "unauthorized access without token" });
   }
   // bearer token
   const token = authorization.split(" ")[1];
@@ -65,6 +65,19 @@ async function run() {
       const query = { email: email };
       const user = await usersCollection.findOne(query);
       if (user?.role !== "admin") {
+        return res
+          .status(403)
+          .send({ error: true, message: "Forbidden Access." });
+      }
+      next();
+    };
+
+    // Verify Owner MiddleWare
+    const verifyOwner = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "owner") {
         return res
           .status(403)
           .send({ error: true, message: "Forbidden Access." });
@@ -222,6 +235,49 @@ async function run() {
         res.send(updateResult);
       }
     });
+
+    // Get Rooms Data By Email
+    app.get("/rooms", verifyJWT, verifyOwner, async (req, res) => {
+      const email = req.query.email;
+      const filter = { ownerEmail: email };
+      const result = await roomsCollection.find(filter).toArray();
+      res.send(result);
+    });
+
+    // Get A Single Room Data By ID
+    app.get("/room/:id", verifyJWT, verifyOwner, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const result = await roomsCollection.findOne(filter);
+      res.send(result);
+    });
+
+    // Update Room Data
+    app.patch('/room/:id', verifyJWT, verifyOwner, async(req, res) => {
+        const id = req.params.id;
+        const filter = {_id: new ObjectId(id)};
+        const updatedRoomData = req.body;
+        
+        const updateDoc = {
+            $set :{
+                ...updatedRoomData
+            }
+        }
+        const options = {upsert: true}
+
+        const result = await roomsCollection.updateOne(filter, updateDoc, options);
+        res.send(result);
+    })
+
+    // Delete Single Room Data
+    app.delete('/room/:id', verifyJWT, verifyOwner, async(req, res) => {
+        const id = req.params.id;
+        const filter = {_id: new ObjectId(id)};
+
+        const result = await roomsCollection.deleteOne(filter);
+        res.send(result);
+    })
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
