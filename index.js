@@ -256,6 +256,14 @@ async function run() {
       }
     });
 
+    // Get All Rooms Data
+    app.get("/rooms", verifyJWT, async (req, res) => {
+      const result = await roomsCollection
+        .find({ status: "approved" })
+        .toArray();
+      res.send(result);
+    });
+
     // Get Rooms Data By Email
     app.get("/rooms", verifyJWT, verifyOwner, async (req, res) => {
       const email = req.query.email;
@@ -328,6 +336,72 @@ async function run() {
       const result = await reservedCollection.insertOne(reservedData);
       res.send(result);
     });
+
+    // Get Reserved Data By Email
+    app.get("/reserve", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+      const filter = { userEmail: email };
+      const result = await reservedCollection.find(filter).toArray();
+      res.send(result);
+    });
+
+    // Delete Reserved Data
+    app.delete("/reserve/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+
+      const result = await reservedCollection.deleteOne(filter);
+      res.send(result);
+    });
+
+    // Reservation Data for Owners
+    app.get("/reserve-owners", verifyJWT, verifyOwner, async (req, res) => {
+      const email = req.query.email;
+      const filter = { ownerEmail: email };
+
+      const result = await reservedCollection.find(filter).toArray();
+      res.send(result);
+    });
+
+    // Update Status of Reservation
+    app.patch("/reserve-owners/:id", verifyJWT, verifyOwner, async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+
+        const status = req.query.status;
+
+        const options = { upsert: true };
+
+        if (status === "approved") {
+          const updateDoc = {
+            $set: {
+              status: "approved",
+            },
+          };
+
+          const updateResult = await reservedCollection.updateOne(
+            filter,
+            updateDoc,
+            options
+          );
+          res.send(updateResult);
+        }
+
+        if (status === "denied") {
+          const updateDoc = {
+            $set: {
+              status: "denied",
+            },
+          };
+          const updateResult = await reservedCollection.updateOne(
+            filter,
+            updateDoc,
+            options
+          );
+          res.send(updateResult);
+        }
+      }
+    );
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
