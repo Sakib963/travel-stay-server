@@ -50,7 +50,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const usersCollection = client.db("travelStayDB").collection("users");
     const ownersCollection = client.db("travelStayDB").collection("owners");
@@ -265,7 +265,7 @@ async function run() {
     });
 
     // Get Rooms Data By Email
-    app.get("/rooms", verifyJWT, verifyOwner, async (req, res) => {
+    app.get("/rooms-owner", verifyJWT, verifyOwner, async (req, res) => {
       const email = req.query.email;
       const filter = { ownerEmail: email };
       const result = await roomsCollection.find(filter).toArray();
@@ -321,6 +321,16 @@ async function run() {
       res.json(result);
     });
 
+    // Get Sorted Hotels
+    app.get("/sorted-hotels", verifyJWT, async (req, res) => {
+      const result = await roomsCollection
+        .find({ status: "approved" })
+        .sort({ totalNumberOfGuest: -1 })
+        .toArray();
+
+      res.json(result);
+    });
+
     // Search
     app.get("/search", verifyJWT, async (req, res) => {
       const city = req.query.city;
@@ -364,7 +374,11 @@ async function run() {
     });
 
     // Update Status of Reservation
-    app.patch("/reserve-owners/:id", verifyJWT, verifyOwner, async (req, res) => {
+    app.patch(
+      "/reserve-owners/:id",
+      verifyJWT,
+      verifyOwner,
+      async (req, res) => {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
 
@@ -378,6 +392,21 @@ async function run() {
               status: "approved",
             },
           };
+
+          const findResult = await reservedCollection.findOne(filter);
+          const roomFilter = { _id: new ObjectId(findResult.roomId) };
+
+          const updateGuest = {
+            $inc: {
+              totalNumberOfGuest: 1,
+            },
+          };
+
+          const updateRooms = await roomsCollection.updateOne(
+            roomFilter,
+            updateGuest,
+            options
+          );
 
           const updateResult = await reservedCollection.updateOne(
             filter,
@@ -400,6 +429,25 @@ async function run() {
           );
           res.send(updateResult);
         }
+      }
+    );
+
+    // Get All Reservation Data
+    app.get("/reservations", verifyJWT, verifyAdmin, async (req, res) => {
+      const result = await reservedCollection.find().toArray();
+      res.send(result);
+    });
+
+    // Delete Reservation
+    app.delete(
+      "/reservations/:id",
+      verifyJWT,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const result = await reservedCollection.deleteOne(filter);
+        res.send(result);
       }
     );
 
