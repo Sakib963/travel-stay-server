@@ -1,1 +1,1 @@
-## Live Server Link [https://elegant-edge-client.web.app/](https://elegant-edge-client.web.app/)
+## Live Server Link [https://travel-stay-server.vercel.app/](https://travel-stay-server.vercel.app/)
